@@ -63,6 +63,26 @@ else
     echo "WARNING: OmniAvatar model directories not found in standard volume paths."
 fi
 
+# Expose standard ComfyUI model folders (Flux/SDXL checkpoints, loras, controlnets, ...)
+# from the Network Volume to the container's ComfyUI models directory.
+VOLUME_MODELS="/runpod-volume/runpod-slim/ComfyUI/models"
+if [ -d "$VOLUME_MODELS" ] && [ "$(cd "$VOLUME_MODELS" && pwd -P)" != "$(cd "${COMFYUI_DIR}/models" && pwd -P 2>/dev/null)" ]; then
+    echo "Linking standard model folders from volume: $VOLUME_MODELS -> ${COMFYUI_DIR}/models"
+    for sub in checkpoints loras controlnet clip clip_vision text_encoders vae unet diffusion_models style_models pulid insightface upscale_models embeddings; do
+        if [ -d "$VOLUME_MODELS/$sub" ]; then
+            target="${COMFYUI_DIR}/models/${sub}"
+            # Skip if the destination already contains real model files
+            if [ -d "$target" ] && \
+               find "$target" -maxdepth 2 \( -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pt' -o -name '*.pth' -o -name '*.bin' -o -name '*.onnx' \) 2>/dev/null | head -1 | grep -q .; then
+                echo "  (skip $sub: destination already has model files)"
+                continue
+            fi
+            ln -sfn "$VOLUME_MODELS/$sub" "$target"
+            echo "  Linked $target -> $VOLUME_MODELS/$sub"
+        fi
+    done
+fi
+
 # Activate virtual environment if running from the Pod's persistent ComfyUI directory
 if [ -f "${COMFYUI_DIR}/.venv-cu128/bin/activate" ]; then
     source "${COMFYUI_DIR}/.venv-cu128/bin/activate"

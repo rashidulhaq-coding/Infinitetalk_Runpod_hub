@@ -1,0 +1,54 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Load Flux Checkpoint" },
+    "inputs": { "ckpt_name": "flux1-dev-fp8.safetensors" }
+  },
+  "2": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Positive Prompt" },
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "Photorealistic commercial portrait of a young adult woman, head and shoulders framing, facing the camera, neutral relaxed expression, natural facial proportions, realistic skin texture, long well-groomed dark hair, natural eyes, wearing a simple premium casual blouse, clean studio background, soft professional studio lighting, subtle shadows, realistic photography, high facial detail, natural skin tones, sharp focus, professional advertising photography."
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Negative Prompt" },
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "blurry, low quality, distorted face, deformed face, asymmetrical eyes, extra fingers, extra limbs, duplicate person, bad anatomy, cartoon, anime, illustration, plastic skin, oversaturated, unrealistic skin, distorted features, text, watermark, logo"
+    }
+  },
+  "7": {
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Empty Latent" },
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
+  },
+  "4": {
+    "class_type": "KSampler",
+    "_meta": { "title": "KSampler" },
+    "inputs": {
+      "seed": 193467344067678,
+      "steps": 28,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["1", 0],
+      "positive": ["2", 0],
+      "negative": ["3", 0],
+      "latent_image": ["7", 0]
+    }
+  },
+  "5": {
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode" },
+    "inputs": { "samples": ["4", 0], "vae": ["1", 2] }
+  },
+  "8": {
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save Image" },
+    "inputs": { "images": ["5", 0], "filename_prefix": "flux_image" }
+  }
+}
