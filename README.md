@@ -1,316 +1,125 @@
-# InfiniteTalk for RunPod Serverless
-[한국어 README 보기](README_kr.md)
+# Comf — OmniAvatar 1.3B RunPod Serverless Worker
 
-This project is a template designed to easily deploy and use [InfiniteTalk](https://github.com/Kijai/InfiniteTalk) in the RunPod Serverless environment.
+RunPod Serverless worker for **Comf** video generation powered by:
 
-[![Runpod](https://api.runpod.io/badge/wlsdml1114/InfiniteTalk_Runpod_hub)](https://console.runpod.io/hub/wlsdml1114/InfiniteTalk_Runpod_hub)
+- **ComfyUI** (`v0.30.0`)
+- **OmniAvatar 1.3B** (`pretrained_models/OmniAvatar-1.3B`)
+- **Wan 2.1 T2V 1.3B** (`pretrained_models/Wan2.1-T2V-1.3B`)
+- **Wav2Vec2** (`pretrained_models/wav2vec2-base-960h`)
+- **Custom Nodes**: `ComfyUI_OmniAvatar` (`OmniAvatar All-in-One (14B)`) and `ComfyUI-VideoHelperSuite` (`VHS_VideoCombine`)
 
-InfiniteTalk is an AI model that takes a single portrait image and speech audio as input to generate natural lip-sync videos with infinite talking capabilities.
+---
 
-## 🎨 Engui Studio Integration
+## Architecture
 
-[![EnguiStudio](https://raw.githubusercontent.com/wlsdml1114/Engui_Studio/main/assets/banner.png)](https://github.com/wlsdml1114/Engui_Studio)
+```text
+Client Application (Comf)
+        │
+        ▼
+RunPod Serverless Endpoint
+        │
+        ▼
+handler.py (RunPod SDK)
+        │
+        ▼
+ComfyUI API (127.0.0.1:8188)
+        │
+        ▼
+OmniAvatar All-in-One (14B) + VHS_VideoCombine
+        │
+        ▼
+Persistent Models on Attached Network Volume
+        │
+        ▼
+MP4 Video Output (Base64 and/or Network Volume Path)
+```
 
-This InfiniteTalk template is primarily designed for **Engui Studio**, a comprehensive AI model management platform. While it can be used via API, Engui Studio provides enhanced features and broader model support.
+---
 
-**Engui Studio Benefits:**
-- **Expanded Model Support**: Access to a wider variety of AI models beyond what's available through API
-- **Enhanced User Interface**: Intuitive workflow management and model selection
-- **Advanced Features**: Additional tools and capabilities for AI model deployment
-- **Seamless Integration**: Optimized for Engui Studio's ecosystem
+## Repository Structure
 
-> **Note**: While this template works perfectly with API calls, Engui Studio users will have access to additional models and features that are planned for future releases.
+```text
+Infinitetalk_Runpod_hub/
+├── handler.py
+├── Dockerfile
+├── entrypoint.sh
+├── requirements.txt
+├── .dockerignore
+├── .gitignore
+├── README.md
+├── workflows/
+│   └── workflow_api.json
+├── custom_nodes/
+│   └── ComfyUI_OmniAvatar/
+│       ├── __init__.py
+│       ├── node_omniavatar_allinone.py
+│       ├── pyproject.toml
+│       └── requirements.txt
+├── OmniAvatar/
+│   ├── configs/
+│   │   ├── inference.yaml
+│   │   └── inference_1.3B.yaml
+│   ├── scripts/
+│   │   └── inference.py
+│   └── OmniAvatar/
+└── config/
+    └── model_paths.yaml
+```
 
-## ✨ Key Features
+---
 
-*   **Infinite Talking**: Generates continuous talking videos without limitations on duration.
-*   **High-Quality Lip-sync**: Lip movements are precisely synchronized with the input audio.
-*   **Real-time Video Generation**: Creates videos synchronized with input audio at high speed.
-*   **ComfyUI Integration**: Built on top of ComfyUI for flexible workflow management.
-*   **Multiple Workflow Support**: Supports both Image-to-Video (I2V) and Video-to-Video (V2V) workflows.
-*   **Single & Multi-Person**: Handles both single-person and multi-person talking scenarios.
+## Persistent Storage & Model Paths
 
-## 🚀 RunPod Serverless Template
+Model weights (~18 GB total) are stored on the RunPod Network Volume (`cz7gbm325z`, `EU-RO-1`) under:
 
-This template includes all the necessary components to run InfiniteTalk as a RunPod Serverless Worker.
+- **Pod mount (`/workspace`)**: `/workspace/runpod-slim/ComfyUI/models/omniavatar/`
+- **Serverless mount (`/runpod-volume`)**: `/runpod-volume/runpod-slim/ComfyUI/models/omniavatar/`
 
-*   **Dockerfile**: Configures the environment and installs all dependencies required for model execution.
-*   **handler.py**: Implements the handler function that processes requests for RunPod Serverless.
-*   **entrypoint.sh**: Performs initialization tasks when the worker starts.
-*   **I2V_single.json**: Image-to-Video single-person workflow configuration.
-*   **I2V_multi.json**: Image-to-Video multi-person workflow configuration.
-*   **V2V_single.json**: Video-to-Video single-person workflow configuration.
-*   **V2V_multi.json**: Video-to-Video multi-person workflow configuration.
+Contains:
+- `OmniAvatar-1.3B/pytorch_model.pt` (~355 MB) and `config.json`
+- `Wan2.1-T2V-1.3B/models_t5_umt5-xxl-enc-bf16.pth` (~11.36 GB), `diffusion_pytorch_model.safetensors` (~5.68 GB), `Wan2.1_VAE.pth` (~508 MB), and `google/umt5-xxl`
+- `wav2vec2-base-960h/` (~378 MB)
 
-### Input
+At startup, `entrypoint.sh` and `node_omniavatar_allinone.py` automatically detect the attached volume and configure `pretrained_models/` symbolic links without re-downloading any model weights.
 
-The `input` object must contain the following fields. Images, videos, and audio can be input using **path, URL, or Base64** - one method for each.
+---
 
-#### Workflow Selection Parameters
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `input_type` | `string` | No | `"image"` | Type of input: `"image"` for Image-to-Video (I2V) or `"video"` for Video-to-Video (V2V) |
-| `person_count` | `string` | No | `"single"` | Number of people: `"single"` for one person or `"multi"` for multiple people |
+## Environment Variables
 
-#### Image Input (for I2V workflows - use only one)
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `image_path` | `string` | No | `/examples/image.jpg` | Local path to the portrait image for lip-sync |
-| `image_url` | `string` | No | `/examples/image.jpg` | URL to the portrait image for lip-sync |
-| `image_base64` | `string` | No | `/examples/image.jpg` | Base64 encoded string of the portrait image for lip-sync |
+| Variable | Default | Description |
+|---|---|---|
+| `COMFYUI_DIR` | `/ComfyUI` (or `/workspace/runpod-slim/ComfyUI`) | Path to ComfyUI installation |
+| `COMFYUI_HOST` | `127.0.0.1` | ComfyUI listen host |
+| `COMFYUI_PORT` | `8188` | ComfyUI listen port |
+| `OMNIAVATAR_MODEL_DIR` / `MODEL_DIR` | Auto-detected from `/runpod-volume` or `/workspace` | Directory containing `OmniAvatar-1.3B`, `Wan2.1-T2V-1.3B`, `wav2vec2-base-960h` |
+| `WORKFLOW_PATH` | `/app/workflows/workflow_api.json` | Default ComfyUI API workflow JSON |
+| `OUTPUT_DIR` | `/runpod-volume/outputs` | Directory for persisted MP4 outputs |
+| `JOB_TIMEOUT` | `1200` | Maximum execution timeout per job in seconds |
 
-#### Video Input (for V2V workflows - use only one)
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `video_path` | `string` | No | `/examples/image.jpg` | Local path to the input video file |
-| `video_url` | `string` | No | `/examples/image.jpg` | URL to the input video file |
-| `video_base64` | `string` | No | `/examples/image.jpg` | Base64 encoded string of the input video file |
+---
 
-#### Audio Input (use only one)
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `wav_path` | `string` | No | `/examples/audio.mp3` | Local path to the audio file (WAV/MP3 format supported) |
-| `wav_url` | `string` | No | `/examples/audio.mp3` | URL to the audio file (WAV/MP3 format supported) |
-| `wav_base64` | `string` | No | `/examples/audio.mp3` | Base64 encoded string of the audio file (WAV/MP3 format supported) |
+## Serverless API Request Format
 
-#### Multi-Person Audio Input (for multi-person workflows - use only one)
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `wav_path_2` | `string` | No | Same as first audio | Local path to the second audio file for multi-person scenarios |
-| `wav_url_2` | `string` | No | Same as first audio | URL to the second audio file for multi-person scenarios |
-| `wav_base64_2` | `string` | No | Same as first audio | Base64 encoded string of the second audio file for multi-person scenarios |
-
-#### Other Parameters
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `prompt` | `string` | No | `"A person talking naturally"` | Description text for the video to be generated |
-| `width` | `integer` | No | `512` | Width of the output video in pixels |
-| `height` | `integer` | No | `512` | Height of the output video in pixels |
-| `max_frame` | `integer` | No | Auto-calculated | Maximum number of frames for the output video (automatically calculated based on audio duration if not provided) |
-| `force_offload` | `boolean` | No | `true` | Whether to offload model components to CPU during inference. Set to `false` for ~1.5x faster processing on high-VRAM GPUs (24GB+). Default `true` prevents OOM on smaller GPUs. |
-| `network_volume` | `boolean` | No | `false` | Whether to use network volume for output storage. If `true`, returns file path instead of Base64 data |
-
-**Request Examples:**
-
-#### 1. I2V Single (Image-to-Video Single Person)
 ```json
 {
   "input": {
-    "input_type": "image",
-    "person_count": "single",
-    "prompt": "A person is talking in a natural way.",
-    "image_url": "https://example.com/portrait.jpg",
-    "wav_url": "https://example.com/audio.wav",
-    "width": 512,
-    "height": 512
+    "prompt": "Young adult woman speaking naturally to the camera...",
+    "image_url": "https://example.com/portrait.png",
+    "audio_url": "https://example.com/speech.wav",
+    "sample_steps": 20,
+    "sample_text_guide_scale": 3.0,
+    "sample_audio_guide_scale": 3.0,
+    "teacache_thresh": 0.2,
+    "seed": 123456789,
+    "frame_rate": 25.0,
+    "crf": 19,
+    "return_base64": true,
+    "network_volume": false
   }
 }
 ```
 
-#### 2. I2V Multi (Image-to-Video Multi Person)
-```json
-{
-  "input": {
-    "input_type": "image",
-    "person_count": "multi",
-    "prompt": "Two people having a conversation.",
-    "image_url": "https://example.com/portrait.jpg",
-    "wav_url": "https://example.com/audio1.wav",
-    "wav_url_2": "https://example.com/audio2.wav",
-    "width": 512,
-    "height": 512
-  }
-}
-```
-
-#### 3. V2V Single (Video-to-Video Single Person)
-```json
-{
-  "input": {
-    "input_type": "video",
-    "person_count": "single",
-    "prompt": "A person singing a song.",
-    "video_url": "https://example.com/input_video.mp4",
-    "wav_url": "https://example.com/audio.wav",
-    "width": 512,
-    "height": 512
-  }
-}
-```
-
-#### 4. V2V Multi (Video-to-Video Multi Person)
-```json
-{
-  "input": {
-    "input_type": "video",
-    "person_count": "multi",
-    "prompt": "Two people talking in a video.",
-    "video_url": "https://example.com/input_video.mp4",
-    "wav_url": "https://example.com/audio1.wav",
-    "wav_url_2": "https://example.com/audio2.wav",
-    "width": 512,
-    "height": 512
-  }
-}
-```
-
-#### 5. Using Base64 (I2V Single Example)
-```json
-{
-  "input": {
-    "input_type": "image",
-    "person_count": "single",
-    "prompt": "A person is talking in a natural way.",
-    "image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
-    "wav_base64": "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=",
-    "width": 512,
-    "height": 512
-  }
-}
-```
-
-#### 6. Using Local Paths (V2V Single Example)
-```json
-{
-  "input": {
-    "input_type": "video",
-    "person_count": "single",
-    "prompt": "A person is talking in a natural way.",
-    "video_path": "/my_volume/input_video.mp4",
-    "wav_path": "/my_volume/audio.wav",
-    "width": 512,
-    "height": 512
-  }
-}
-```
-
-#### 7. Using Network Volume for Output (I2V Single Example)
-```json
-{
-  "input": {
-    "input_type": "image",
-    "person_count": "single",
-    "prompt": "A person talking in a natural way.",
-    "image_url": "https://example.com/portrait.jpg",
-    "wav_url": "https://example.com/audio.wav",
-    "width": 512,
-    "height": 512,
-    "network_volume": true
-  }
-}
-```
-
-### Output
-
-#### Success
-
-If the job is successful, it returns a JSON object with the generated video. The response format depends on the `network_volume` parameter.
-
-**When `network_volume` is `false` (default):**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `video` | `string` | Base64 encoded video file data. |
-
-**Success Response Example (Base64):**
-
-```json
-{
-  "video": "data:video/mp4;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-}
-```
-
-**When `network_volume` is `true`:**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `video_path` | `string` | File path to the generated video stored in the network volume. |
-
-**Success Response Example (Network Volume):**
-
-```json
-{
-  "video_path": "/runpod-volume/infinitetalk_task_12345.mp4"
-}
-```
-
-#### Error
-
-If the job fails, it returns a JSON object containing an error message.
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `error` | `string` | Description of the error that occurred. |
-
-**Error Response Example:**
-
-```json
-{
-  "error": "비디오를 찾을 수 없습니다."
-}
-```
-
-## 🛠️ Usage and API Reference
-
-1.  Create a Serverless Endpoint on RunPod based on this repository.
-2.  Once the build is complete and the endpoint is active, submit jobs via HTTP POST requests according to the API Reference below.
-
-### 📁 Using Network Volumes
-
-You can use RunPod's Network Volumes for both input and output files. This is especially useful when dealing with large files.
-
-#### For Input Files
-
-Instead of directly transmitting Base64 encoded files, you can use Network Volumes to handle large input files:
-
-1.  **Create and Connect Network Volume**: Create a Network Volume (e.g., S3-based volume) from the RunPod dashboard and connect it to your Serverless Endpoint settings.
-2.  **Upload Files**: Upload the image, video, and audio files you want to use to the created Network Volume.
-3.  **Specify Paths**: When making an API request, specify the file paths within the Network Volume for `image_path`, `video_path`, and `wav_path`. For example, if the volume is mounted at `/my_volume` and you use `portrait.jpg`, the path would be `"/my_volume/portrait.jpg"`.
-
-#### For Output Files
-
-You can also use Network Volumes to store the generated video files instead of returning Base64 data:
-
-1.  **Set `network_volume` to `true`**: Add `"network_volume": true` to your request input.
-2.  **Get File Path**: The response will contain a `video_path` field with the location of the generated video file in the network volume.
-3.  **Access Files**: The generated video will be saved to `/runpod-volume/` directory with a unique filename.
-
-**Benefits of using Network Volumes:**
-- **Reduced Memory Usage**: No need to load large files into memory for Base64 encoding/decoding
-- **Faster Processing**: Direct file access is more efficient than Base64 conversion
-- **Persistent Storage**: Generated files remain accessible after the job completes
-- **Large File Support**: Handle files larger than typical API payload limits
-
-## 🔧 Workflow Configuration
-
-This template includes four workflow configurations that are automatically selected based on your input parameters:
-
-*   **I2V_single.json**: Image-to-Video single-person workflow
-*   **I2V_multi.json**: Image-to-Video multi-person workflow
-*   **V2V_single.json**: Video-to-Video single-person workflow
-*   **V2V_multi.json**: Video-to-Video multi-person workflow
-
-### Workflow Selection Logic
-
-The handler automatically selects the appropriate workflow based on your input parameters:
-
-| input_type | person_count | Selected Workflow |
-|------------|--------------|-------------------|
-| `"image"` | `"single"` | I2V_single.json |
-| `"image"` | `"multi"` | I2V_multi.json |
-| `"video"` | `"single"` | V2V_single.json |
-| `"video"` | `"multi"` | V2V_multi.json |
-
-The workflows are based on ComfyUI and include all necessary nodes for InfiniteTalk processing. Each workflow is optimized for its specific use case and includes the appropriate model configurations.
-
-## 🙏 Original Project
-
-This project is based on the following original repository. All rights to the model and core logic belong to the original authors.
-
-*   **InfiniteTalk:** [https://github.com/MeiGen-AI/InfiniteTalk](https://github.com/MeiGen-AI/InfiniteTalk)
-*   **ComfyUI:** [https://github.com/comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI)
-*   **WanVideoWrapper** [https://github.com/kijai/ComfyUI-WanVideoWrapper](https://github.com/kijai/ComfyUI-WanVideoWrapper)
-
-## 📄 License
-
-The original InfiniteTalk project follows the Apache 2.0 License. This template also adheres to that license.
+### Supported Input Fields
+- **Portrait Image**: `image_url`, `image_base64`, `image_path`, `image`, `portrait_url`, `portrait_base64`, `portrait_path`, or `portrait`
+- **Speech Audio**: `audio_url`, `audio_base64`, `audio_path`, `audio`, `wav_url`, `wav_base64`, or `wav_path`
+- **Generation Parameters**: `prompt`, `sample_steps` (alias `steps`), `sample_text_guide_scale` (alias `guidance_scale`), `sample_audio_guide_scale` (alias `audio_scale`), `teacache_thresh`, `seed`, `control_after_generate`, `frame_rate` (alias `fps`), `crf`

@@ -1,68 +1,57 @@
-# Use specific version of nvidia cuda image
-FROM wlsdml1114/engui_genai-base_blackwell:1.1 as runtime
+FROM wlsdml1114/engui_genai-base_blackwell:1.1 AS runtime
 
-# wget 설치 (URL 다운로드를 위해)
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV COMFYUI_DIR=/ComfyUI
+ENV COMFYUI_HOST=127.0.0.1
+ENV COMFYUI_PORT=8188
+ENV WORKFLOW_PATH=/app/workflows/workflow_api.json
+ENV OUTPUT_DIR=/runpod-volume/outputs
 
-RUN pip install -U "huggingface_hub[hf_transfer]"
-RUN pip install runpod websocket-client librosa
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git wget curl ffmpeg libgl1 libsndfile1 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
 
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
+# Clone ComfyUI and core custom nodes
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git /ComfyUI && \
     cd /ComfyUI && \
-    pip install -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt
 
 RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/Comfy-Org/ComfyUI-Manager.git && \
-    cd ComfyUI-Manager && \
-    pip install -r requirements.txt
-
-RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/city96/ComfyUI-GGUF && \
-    cd ComfyUI-GGUF && \
-    pip install -r requirements.txt
-
-RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/kijai/ComfyUI-KJNodes && \
-    cd ComfyUI-KJNodes && \
-    pip install -r requirements.txt
-
-RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite && \
+    git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git && \
     cd ComfyUI-VideoHelperSuite && \
-    pip install -r requirements.txt
-    
-RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/orssorbit/ComfyUI-wanBlockswap
+    pip install --no-cache-dir -r requirements.txt && \
+    cd /ComfyUI/custom_nodes && \
+    git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
+    cd ComfyUI-KJNodes && \
+    pip install --no-cache-dir -r requirements.txt
 
-RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/kijai/ComfyUI-MelBandRoFormer && \
-    cd ComfyUI-MelBandRoFormer && \
-    pip install -r requirements.txt
+# Install OmniAvatar & RunPod Serverless dependencies without overwriting CUDA PyTorch
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir \
+    runpod websocket-client librosa soundfile tqdm peft accelerate \
+    ftfy einops omegaconf imageio imageio-ffmpeg opencv-python-headless \
+    Pillow PyYAML safetensors scipy regex boto3 requests && \
+    pip install --no-cache-dir --no-deps xfuser==0.4.1 yunchang==0.6.4 diffusers distvae
 
-RUN cd /ComfyUI/custom_nodes && \
-    git clone https://github.com/kijai/ComfyUI-WanVideoWrapper && \
-    cd ComfyUI-WanVideoWrapper && \
-    pip install -r requirements.txt
+# Copy modified OmniAvatar custom node and standalone inference package
+COPY custom_nodes/ComfyUI_OmniAvatar /ComfyUI/custom_nodes/ComfyUI_OmniAvatar
+COPY OmniAvatar /ComfyUI/OmniAvatar
 
+# Copy workflows, config, handler, and entrypoint
+COPY workflows /app/workflows
+COPY workflows /workflows
+COPY config /app/config
+COPY examples /app/examples
+COPY examples /examples
+COPY workflow_api.json /app/workflow_api.json
+COPY handler.py /app/handler.py
+COPY handler.py /handler.py
+COPY entrypoint.sh /entrypoint.sh
 
-# RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy_GGUF/resolve/main/InfiniteTalk/Wan2_1-InfiniteTalk_Single_Q8.gguf -O /ComfyUI/models/diffusion_models/Wan2_1-InfiniteTalk_Single_Q8.gguf
-# RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy_GGUF/resolve/main/InfiniteTalk/Wan2_1-InfiniteTalk_Multi_Q8.gguf -O /ComfyUI/models/diffusion_models/Wan2_1-InfiniteTalk_Multi_Q8.gguf
-# RUN wget -q https://huggingface.co/city96/Wan2.1-I2V-14B-480P-gguf/resolve/main/wan2.1-i2v-14b-480p-Q8_0.gguf -O /ComfyUI/models/diffusion_models/wan2.1-i2v-14b-480p-Q8_0.gguf
-
-RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/InfiniteTalk/Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors -O /ComfyUI/models/diffusion_models/Wan2_1-InfiniteTalk-Single_fp8_e4m3fn_scaled_KJ.safetensors
-RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy_fp8_scaled/resolve/main/InfiniteTalk/Wan2_1-InfiniteTalk-Multi_fp8_e4m3fn_scaled_KJ.safetensors -O /ComfyUI/models/diffusion_models/Wan2_1-InfiniteTalk-Multi_fp8_e4m3fn_scaled_KJ.safetensors
-RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors -O /ComfyUI/models/diffusion_models/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors
-
-RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors -O /ComfyUI/models/loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors
-RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors -O /ComfyUI/models/vae/Wan2_1_VAE_bf16.safetensors    
-RUN wget -q https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-fp8_e4m3fn.safetensors -O /ComfyUI/models/text_encoders/umt5-xxl-enc-fp8_e4m3fn.safetensors
-RUN wget -q https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors -O /ComfyUI/models/clip_vision/clip_vision_h.safetensors
-RUN wget -q https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBandRoformer_fp16.safetensors -O /ComfyUI/models/diffusion_models/MelBandRoformer_fp16.safetensors
-
-
-COPY . .
 RUN chmod +x /entrypoint.sh
 
+WORKDIR /app
 CMD ["/entrypoint.sh"]

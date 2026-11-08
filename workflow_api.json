@@ -1,0 +1,69 @@
+{
+  "1": {
+    "inputs": {
+      "prompt": "Young adult woman with long dark hair and a premium casual blouse, speaking naturally to the camera. Maintain the exact identity and appearance of the reference image. Natural lip synchronization, subtle facial expressions, gentle blinking, slight head movements, minimal shoulder movement, relaxed expression, static camera, soft studio lighting, realistic skin texture, clean background, realistic commercial video.",
+      "sample_steps": 20,
+      "sample_text_guide_scale": 3.0,
+      "sample_audio_guide_scale": 3.0,
+      "teacache_thresh": 0.2,
+      "seed": 123456789,
+      "control_after_generate": "fixed",
+      "portrait": [
+        "2",
+        0
+      ],
+      "audio": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "OmniAvatar All-in-One (14B)",
+    "_meta": {
+      "title": "OmniAvatar All-in-One (14B)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "image": "ComfyUI_temp_hnddi_00002_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "3": {
+    "inputs": {
+      "audio": "brightside_welcome.wav"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Audio"
+    }
+  },
+  "5": {
+    "inputs": {
+      "frame_rate": 25.0,
+      "loop_count": 0,
+      "filename_prefix": "omniavatar",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "1",
+        0
+      ],
+      "audio": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  }
+}

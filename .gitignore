@@ -7,14 +7,33 @@ __pycache__/
 # Virtual environments
 venv/
 env/
+.venv/
+.venv-cu128/
 .env
 
-# IDE
+# Models & Weights (never commit to Git)
+/models/
+/pretrained_models/
+*.safetensors
+*.ckpt
+*.pth
+*.pt
+*.bin
+*.gguf
+*.h5
+
+# Outputs, Temp, Logs, Backups
+/output/
+/outputs/
+*.log
+*.bak
+*.bak2
+omniavatar_*.mp4
+
+# IDE & OS
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db

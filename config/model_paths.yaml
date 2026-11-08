@@ -1,0 +1,20 @@
+# Model paths configuration for ComfyUI + OmniAvatar 1.3B on RunPod Serverless
+comfyui:
+  base_path: /runpod-volume/runpod-slim/ComfyUI/models
+  checkpoints: checkpoints
+  loras: loras
+  vae: vae
+  text_encoders: text_encoders
+  diffusion_models: diffusion_models
+  clip_vision: clip_vision
+  controlnet: controlnet
+
+omniavatar:
+  # Primary Network Volume location (when Pod volume is mounted at /runpod-volume)
+  volume_model_dir: /runpod-volume/runpod-slim/ComfyUI/models/omniavatar
+  # Pod mount location (when mounted at /workspace)
+  pod_model_dir: /workspace/runpod-slim/ComfyUI/models/omniavatar
+  models:
+    omniavatar_1_3b: OmniAvatar-1.3B
+    wan_2_1_t2v_1_3b: Wan2.1-T2V-1.3B
+    wav2vec2: wav2vec2-base-960h

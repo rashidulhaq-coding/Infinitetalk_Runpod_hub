@@ -1,18 +1,17 @@
 {
-    "title": "InfiniteTalk_Runpod_hub",
-    "description": "InfiniteTalk is an unlimited-length talking video generation​​ model that supports both audio-driven video-to-video and image-to-video generation",
+    "title": "Comf OmniAvatar 1.3B Serverless Worker",
+    "description": "ComfyUI + OmniAvatar 1.3B + Wan 2.1 T2V 1.3B + Wav2Vec2 audio-driven avatar video generation worker for RunPod Serverless",
     "type": "serverless",
     "category": "video",
     "iconUrl": "https://github.com/wlsdml1114/Engui_Studio/blob/main/assets/logo.png?raw=true",
-  
     "config": {
       "runsOn": "GPU",
-      "containerDiskInGb": 280,
-  
+      "containerDiskInGb": 40,
       "gpuCount": 1,
-      "gpuIds": "ADA_24,ADA_32_PRO",
+      "gpuIds": "ADA_24,ADA_32_PRO,AMPERE_24",
       "allowedCudaVersions": [
-        "12.8"
+        "12.8",
+        "13.0"
       ]
     }
 }
