@@ -77,7 +77,8 @@ if [ -d "$VOLUME_MODELS" ] && [ "$(cd "$VOLUME_MODELS" && pwd -P)" != "$(cd "${C
                 echo "  (skip $sub: destination already has model files)"
                 continue
             fi
-            ln -sfn "$VOLUME_MODELS/$sub" "$target"
+            rm -rf "$target"
+            ln -s "$VOLUME_MODELS/$sub" "$target"
             echo "  Linked $target -> $VOLUME_MODELS/$sub"
         fi
     done
