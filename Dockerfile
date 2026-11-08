@@ -14,6 +14,13 @@ RUN apt-get update && \
 
 WORKDIR /
 
+# Preserve the base image's CUDA PyTorch stack when installing ComfyUI and custom node requirements
+RUN python -c "import torch, torchvision, torchaudio; \
+    open('/tmp/torch-constraints.txt', 'w').write(f'torch=={torch.__version__}\ntorchvision=={torchvision.__version__}\ntorchaudio=={torchaudio.__version__}\n')" && \
+    cat /tmp/torch-constraints.txt
+
+ENV PIP_CONSTRAINT=/tmp/torch-constraints.txt
+
 # Clone ComfyUI and core custom nodes
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /ComfyUI && \
     cd /ComfyUI && \
@@ -28,12 +35,13 @@ RUN cd /ComfyUI/custom_nodes && \
     cd ComfyUI-KJNodes && \
     pip install --no-cache-dir -r requirements.txt
 
-# Install OmniAvatar & RunPod Serverless dependencies without overwriting CUDA PyTorch
+# Install OmniAvatar & RunPod Serverless dependencies
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir \
     runpod websocket-client librosa soundfile tqdm peft accelerate \
     ftfy einops omegaconf imageio imageio-ffmpeg opencv-python-headless \
-    Pillow PyYAML safetensors scipy regex boto3 requests && \
+    Pillow PyYAML safetensors scipy regex boto3 requests \
+    "huggingface_hub>=1.33.0,<2.0" importlib_metadata zipp && \
     pip install --no-cache-dir --no-deps xfuser==0.4.1 yunchang==0.6.4 diffusers distvae
 
 # Copy modified OmniAvatar custom node and standalone inference package
